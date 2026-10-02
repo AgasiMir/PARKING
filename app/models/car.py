@@ -2,7 +2,7 @@ import uuid
 from enum import Enum
 
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import String, text
+from sqlalchemy import Index, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -17,6 +17,14 @@ class CarStatus(Enum):
 
 class Car(TimestampMixin, Base):
     __tablename__ = "cars"
+    __table_args__ = (
+        Index(
+            "uq_cars_number_parked",
+            "number",
+            unique=True,
+            postgresql_where=text("status = 'parked'"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

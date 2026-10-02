@@ -22,9 +22,9 @@ async def car_not_found_handler(request: Request, exc: Exception) -> JSONRespons
     )
 
 
-async def car_allready_parked_handler(request: Request, exc: Exception) -> JSONResponse:
+async def car_already_parked_handler(request: Request, exc: Exception) -> JSONResponse:
     return build_error_response(
-        error="car_allready_parked",
+        error="car_already_parked",
         message=str(exc),
         status_code=status.HTTP_409_CONFLICT,
     )
@@ -40,5 +40,5 @@ async def car_is_not_parked_handler(request: Request, exc: Exception) -> JSONRes
 
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(CarNotFoundException, car_not_found_handler)
-    app.add_exception_handler(CarIsAlreadyParkedException, car_allready_parked_handler)
+    app.add_exception_handler(CarIsAlreadyParkedException, car_already_parked_handler)
     app.add_exception_handler(CarIsNotParkedException, car_is_not_parked_handler)

@@ -4,16 +4,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.v1.cars.schemas import CarParkSchema, CarReadSchema, CarUnparkSchema
-from app.errors.python_exceptions import CarNotFoundException
-from app.models.car import Car
+from app.errors.python_exceptions import CarIsNotParkedException, CarNotFoundException
+from app.models.car import Car, CarStatus
 
 
 class CarRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def check_car_status(self, car_number):
-        car = await self.session.scalars(
+    async def check_car_status(self, car_number: str) -> Car | None:
+        result = await self.session.scalars(
             select(Car)
             .where(Car.number == car_number)
             .order_by(
@@ -21,26 +21,26 @@ class CarRepository:
             )
             .with_for_update()
         )
-        if not car:
-            return None
-
-        car = car.first()
+        car = result.first()
         return car
 
     async def get_cars(self) -> Sequence[Car]:
         cars = await self.session.scalars(select(Car))
         return cars.all()
 
-    async def get_car(self, car_number: str) -> Car:
-        car = await self.session.scalar(select(Car).where(Car.number == car_number))
+    async def get_car_list_by_number(self, car_number: str) -> Sequence[Car]:
+        car = await self.session.scalars(
+            select(Car)
+            .where(Car.number == car_number)
+            .order_by(
+                Car.created_at.desc(),
+            )
+        )
 
-        if not car:
-            raise CarNotFoundException
-
-        return car
+        return car.all()
 
     async def park_car(self, park_car: CarParkSchema) -> CarReadSchema:
-        db_park = Car(**park_car.model_dump(), status="parked")
+        db_park = Car(**park_car.model_dump(), status=CarStatus.parked)
 
         self.session.add(db_park)
         await self.session.flush()
@@ -51,7 +51,13 @@ class CarRepository:
     async def unpark_car(self, unpark_car: CarUnparkSchema) -> CarReadSchema:
         car = await self.check_car_status(car_number=unpark_car.number)
 
-        car.status = "unparked"
+        if car is None:
+            raise CarNotFoundException
+
+        if car.status == CarStatus.unparked:
+            raise CarIsNotParkedException
+
+        car.status = CarStatus.unparked
 
         await self.session.flush()
         await self.session.refresh(car)

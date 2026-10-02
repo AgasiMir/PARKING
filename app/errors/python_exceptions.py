@@ -1,17 +1,17 @@
-class PostException(Exception):
+class ParkingException(Exception):
     detail = "Unknown Exception."
 
     def __init__(self, *args, **kwargs):
         super().__init__(self.detail, *args, **kwargs)
 
 
-class CarNotFoundException(PostException):
-    detail = "Машина не нейдена."
+class CarNotFoundException(ParkingException):
+    detail = "Машина не найдена."
 
 
-class CarIsAlreadyParkedException(PostException):
+class CarIsAlreadyParkedException(ParkingException):
     detail = "Машина уже припаркована."
 
 
-class CarIsNotParkedException(PostException):
+class CarIsNotParkedException(ParkingException):
     detail = "Машина еще не припаркована."

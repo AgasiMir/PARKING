@@ -14,28 +14,19 @@ async def get_cars(cars: CarServiceDep):
 
 @router.get(
     "/{car_number}",
-    response_model=CarReadSchema,
-    summary="Получить машину по ее номеру",
-    description="Возвращает машину и ее описание",
-    responses={
-        404: {
-            "description": "Машина не найдена",
-            "model": ErrorResponse,
-        },
-    },
+    response_model=list[CarReadSchema],
+    summary="Получить историю машины (заезд и выезд из парковки) по номеру",
 )
-async def get_car(cars: CarServiceDep, car_nubmer: str):
-    return await cars.get_car(car_number=car_nubmer)
+async def get_car_list_by_number(cars: CarServiceDep, car_number: str):
+    return await cars.get_car_list_by_number(car_number=car_number)
 
 
 @router.post(
     "/park",
+    response_model=CarReadSchema,
+    summary="Паркование машины по номеру",
     status_code=status.HTTP_201_CREATED,
     responses={
-        404: {
-            "description": "Машина не найдена",
-            "model": ErrorResponse,
-        },
         409: {
             "description": "Машина уже припаркована.",
             "model": ErrorResponse,
@@ -43,12 +34,13 @@ async def get_car(cars: CarServiceDep, car_nubmer: str):
     },
 )
 async def park_car(cars: CarServiceDep, park_car: CarParkSchema):
-    res = await cars.park_car(park_car=park_car)
-    return {"message": res}
+    return await cars.park_car(park_car=park_car)
 
 
 @router.patch(
     "/unpark",
+    summary="Убрать машину из парковки по номеру",
+    response_model=CarReadSchema,
     responses={
         404: {
             "description": "Машина не найдена",
@@ -61,5 +53,4 @@ async def park_car(cars: CarServiceDep, park_car: CarParkSchema):
     },
 )
 async def unpark_car(cars: CarServiceDep, unpark_car: CarUnparkSchema):
-    res = await cars.unpark_car(unpark_car=unpark_car)
-    return {"message": res}
+    return await cars.unpark_car(unpark_car=unpark_car)
