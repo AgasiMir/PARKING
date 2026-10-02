@@ -4,6 +4,11 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class CarParkTimePriceSchema(BaseModel):
+    park_time: str
+    price: str
+
+
 class CarReadSchema(BaseModel):
     id: UUID
     mark: str = Field(min_length=2, max_length=50)
@@ -26,3 +31,8 @@ class CarParkSchema(BaseModel):
 
 class CarUnparkSchema(BaseModel):
     number: str = Field(min_length=6, max_length=8)
+
+
+class CarParkingAndPirceSchema(BaseModel):
+    parking_data: CarReadSchema
+    price_time_data: CarParkTimePriceSchema

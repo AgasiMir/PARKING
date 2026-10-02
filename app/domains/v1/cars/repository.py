@@ -1,5 +1,3 @@
-from collections.abc import Sequence
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,6 +7,8 @@ from app.models.car import Car, CarStatus
 
 
 class CarRepository:
+    _schema = CarReadSchema
+
     def __init__(self, session: AsyncSession):
         self.session = session
 
@@ -24,11 +24,11 @@ class CarRepository:
         car = result.first()
         return car
 
-    async def get_cars(self) -> Sequence[Car]:
+    async def get_cars(self) -> list[CarReadSchema]:
         cars = await self.session.scalars(select(Car))
-        return cars.all()
+        return [self._schema.model_validate(car) for car in cars.all()]
 
-    async def get_car_list_by_number(self, car_number: str) -> Sequence[Car]:
+    async def get_car_list_by_number(self, car_number: str) -> list[CarReadSchema]:
         car = await self.session.scalars(
             select(Car)
             .where(Car.number == car_number)
@@ -37,7 +37,7 @@ class CarRepository:
             )
         )
 
-        return car.all()
+        return [self._schema.model_validate(car) for car in car.all()]
 
     async def park_car(self, park_car: CarParkSchema) -> CarReadSchema:
         db_park = Car(**park_car.model_dump(), status=CarStatus.parked)
@@ -46,7 +46,7 @@ class CarRepository:
         await self.session.flush()
         await self.session.refresh(db_park)
 
-        return CarReadSchema.model_validate(db_park)
+        return self._schema.model_validate(db_park)
 
     async def unpark_car(self, unpark_car: CarUnparkSchema) -> CarReadSchema:
         car = await self.check_car_status(car_number=unpark_car.number)
@@ -62,4 +62,4 @@ class CarRepository:
         await self.session.flush()
         await self.session.refresh(car)
 
-        return CarReadSchema.model_validate(car)
+        return self._schema.model_validate(car)
