@@ -1,4 +1,4 @@
-from sqlalchemy import MetaData
+from sqlalchemy import MetaData, NullPool
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -19,6 +19,15 @@ async_engine = create_async_engine(
 
 async_session = async_sessionmaker(
     bind=async_engine,
+    expire_on_commit=False,
+    class_=AsyncSession,
+)
+
+
+engine_null_pool = create_async_engine(url=settings.DB_URL, poolclass=NullPool)
+
+async_session_null_pool = async_sessionmaker(
+    bind=engine_null_pool,
     expire_on_commit=False,
     class_=AsyncSession,
 )

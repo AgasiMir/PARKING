@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.car import CarStatus
+
 
 class CarParkTimePriceSchema(BaseModel):
     park_time: str
@@ -15,7 +17,7 @@ class CarReadSchema(BaseModel):
     model: str = Field(min_length=2, max_length=50)
     number: str = Field(min_length=6, max_length=8)
     color: str = Field(min_length=2, max_length=50)
-    status: str = Field(description="Статус парковки")
+    status: CarStatus = Field(description="Статус парковки")
     created_at: datetime = Field(description="Дата и время захода в парковку")
     updated_at: datetime = Field(description="Дата и время выхода из парковки")
 

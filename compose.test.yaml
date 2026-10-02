@@ -1,0 +1,15 @@
+services:
+
+  test_postgres:
+      image: postgres:17
+      container_name: parking_test_db
+      env_file: 
+        .env.test
+      ports:
+        - "16432:5432"  
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} || exit 1"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      restart: unless-stopped
