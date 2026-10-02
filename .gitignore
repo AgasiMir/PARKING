@@ -1,0 +1,42 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.ruff_cache
+.mypy_cache
+
+# Logs
+*.log
+*.log.gz
+*.log.zip
+logs/
+log/
+log.*
+!log.py
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv
+venv/
+env/
+.env*
+!.env.example*
+
+# Database
+db.sqlite3
+test.db
+queries.py
+
+# Celery files
+celerybeat-schedule*
+celerybeat.pid
+
+# Other
+scripts/
