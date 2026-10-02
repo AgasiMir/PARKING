@@ -1,7 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 
 from app.domains.v1.cars.schemas import (
-    CarParkingAndPirceSchema,
+    CarParkingAndPriceSchema,
     CarParkSchema,
     CarParkTimePriceSchema,
     CarReadSchema,
@@ -19,11 +19,11 @@ class CarService:
     def __init__(self, uow: UnitOfWork):
         self.uow = uow
 
-    async def get_cars(self) -> list[CarParkingAndPirceSchema]:
+    async def get_cars(self) -> list[CarParkingAndPriceSchema]:
         cars = await self.uow.cars.get_cars()
         return [await self._get_car_parking_price_and_time(car) for car in cars]
 
-    async def get_car_list_by_number(self, car_number: str) -> list[CarParkingAndPirceSchema]:
+    async def get_car_list_by_number(self, car_number: str) -> list[CarParkingAndPriceSchema]:
         cars = await self.uow.cars.get_car_list_by_number(car_number=car_number)
         return [await self._get_car_parking_price_and_time(car) for car in cars]
 
@@ -37,12 +37,12 @@ class CarService:
         except IntegrityError as err:
             raise CarIsAlreadyParkedException from err
 
-    async def unpark_car(self, unpark_car: CarUnparkSchema) -> CarParkingAndPirceSchema | None:
+    async def unpark_car(self, unpark_car: CarUnparkSchema) -> CarParkingAndPriceSchema:
         car = await self.uow.cars.unpark_car(unpark_car)
         return await self._get_car_parking_price_and_time(car)
 
-    async def _get_car_parking_price_and_time(self, car: CarReadSchema) -> CarParkingAndPirceSchema:
-        park_time = (car.updated_at - car.created_at).seconds // 60
+    async def _get_car_parking_price_and_time(self, car: CarReadSchema) -> CarParkingAndPriceSchema:
+        park_time = (car.updated_at - car.created_at).total_seconds() // 60
         price_strategy = set_pricing_strategies(park_time)
         set_price_strategy = pricing_strategies_map[price_strategy]
 
@@ -50,8 +50,8 @@ class CarService:
 
         price_time = CarParkTimePriceSchema(
             **{
-                "park_time": f"Время парковки: {park_time} минут",
+                "park_time": f"Время парковки: {park_time} мин.",
                 "price": f"Стоимость: {price} руб.",
             },
         )
-        return CarParkingAndPirceSchema(parking_data=car, price_time_data=price_time)
+        return CarParkingAndPriceSchema(parking_data=car, price_time_data=price_time)

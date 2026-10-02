@@ -33,6 +33,6 @@ class CarUnparkSchema(BaseModel):
     number: str = Field(min_length=6, max_length=8)
 
 
-class CarParkingAndPirceSchema(BaseModel):
+class CarParkingAndPriceSchema(BaseModel):
     parking_data: CarReadSchema
     price_time_data: CarParkTimePriceSchema

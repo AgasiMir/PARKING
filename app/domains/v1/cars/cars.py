@@ -2,7 +2,7 @@ from fastapi import APIRouter, status
 
 from app.domains.dependencies import CarServiceDep
 from app.domains.v1.cars.schemas import (
-    CarParkingAndPirceSchema,
+    CarParkingAndPriceSchema,
     CarParkSchema,
     CarReadSchema,
     CarUnparkSchema,
@@ -12,14 +12,14 @@ from app.errors.schemas import ErrorResponse
 router = APIRouter(prefix="/cars", tags=["cars 🚗🚙🚓"])
 
 
-@router.get("/", response_model=list[CarParkingAndPirceSchema])
+@router.get("/", response_model=list[CarParkingAndPriceSchema])
 async def get_cars(cars: CarServiceDep):
     return await cars.get_cars()
 
 
 @router.get(
     "/{car_number}",
-    response_model=list[CarParkingAndPirceSchema],
+    response_model=list[CarParkingAndPriceSchema],
     summary="Получить историю машины (заезд и выезд из парковки) по номеру",
 )
 async def get_car_list_by_number(cars: CarServiceDep, car_number: str):
@@ -45,7 +45,7 @@ async def park_car(cars: CarServiceDep, park_car: CarParkSchema):
 @router.patch(
     "/unpark",
     summary="Убрать машину из парковки по номеру",
-    response_model=CarParkingAndPirceSchema,
+    response_model=CarParkingAndPriceSchema,
     responses={
         404: {
             "description": "Машина не найдена",

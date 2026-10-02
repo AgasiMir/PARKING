@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from app.park_price.pricing_strategies import (
     LongTimeParkPrice,
     MidTimeParkPrice,
@@ -8,7 +6,7 @@ from app.park_price.pricing_strategies import (
 )
 
 
-def set_pricing_strategies(park_time: int):
+def set_pricing_strategies(park_time: float):
 
     if park_time < 60:
         return "short"
@@ -29,15 +27,5 @@ class Pricing:
     def __init__(self, park_price: ParkPrice):
         self.park_price = park_price
 
-    def get_park_price(self, park_time: int) -> float:
+    def get_park_price(self, park_time: float) -> float:
         return self.park_price.get_park_price(park_time)
-
-
-if __name__ == "__main__":
-    park = datetime(2026, 10, 2, 15, 00, 29)
-    unpark = datetime(2026, 10, 2, 17, 0, 29)
-    park_time = (unpark - park).seconds // 60
-
-    set_pricing_strategy = pricing_strategies_map[set_pricing_strategies(park_time)]
-    total_price = Pricing(set_pricing_strategy).get_park_price(park_time)
-    print(total_price)
