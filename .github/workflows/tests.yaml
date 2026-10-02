@@ -1,0 +1,60 @@
+name: tests
+
+on:
+  push:
+      branches: [master]
+  pull_request:
+      branches: [master]
+
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+            version: "latest"
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache uv and venv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/uv
+            .venv
+          key: uv-venv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-venv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Lint with ruff
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Type check with mypy
+        run: uv run mypy .
+
+      - name: Prepare .env.test file
+        run: cp .env.example.test .env.test
+
+      - name: Start DataBase
+        run: docker compose -f compose.test.yaml up -d
+
+      - name: Run tests
+        run: uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=80
+
+      - name: Stop Containers
+        if: always()
+        run: docker compose -f compose.test.yaml down -v
