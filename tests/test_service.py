@@ -1,9 +1,11 @@
+import asyncio
 from datetime import datetime
 from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
 
+from app.core.database import async_session_null_pool
 from app.domains.v1.cars.schemas import (
     CarParkingAndPriceSchema,
     CarParkSchema,
@@ -133,3 +135,27 @@ async def test_unpark_car_with_wrong_number(db: UnitOfWork):
     with pytest.raises(ValidationError):
         unpark_car = CarUnparkSchema(number="ak47TTxxx")
         await CarService(db).unpark_car(unpark_car=unpark_car)
+
+
+async def test_concurrent_unparks_serialized():
+    car = CarParkSchema(mark="Toyota", model="Corolla", number="db777xH", color="red")
+    unpark = CarUnparkSchema(number=car.number)
+
+    # 1) Паркуем и ЗАКОММИЧИВАЕМ: выход из async with = commit.
+    #    Фикстуру db использовать нельзя — её транзакция открыта,
+    #    и строка не видна другим соединениям.
+    async with UnitOfWork(async_session_null_pool) as setup_uow:
+        await setup_uow.cars.park_car(car)
+
+    async def unpark_once():
+        # 2) Каждый вызов — СВОЙ UoW, обязательно через async with
+        async with UnitOfWork(async_session_null_pool) as uow:
+            return await CarService(uow=uow).unpark_car(unpark)
+
+    results = await asyncio.gather(unpark_once(), unpark_once(), return_exceptions=True)
+
+    ok = [r for r in results if not isinstance(r, Exception)]
+    errors = [type(r) for r in results if isinstance(r, Exception)]
+
+    assert len(ok) == 1
+    assert errors == [CarIsNotParkedException]

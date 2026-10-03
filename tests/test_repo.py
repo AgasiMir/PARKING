@@ -1,6 +1,10 @@
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 from pydantic import ValidationError
+from sqlalchemy.dialects import postgresql
 
+from app.domains.v1.cars.repository import CarRepository
 from app.domains.v1.cars.schemas import CarParkSchema, CarReadSchema, CarUnparkSchema
 from app.errors.python_exceptions import CarIsNotParkedException, CarNotFoundException
 from app.models.car import CarStatus
@@ -82,3 +86,14 @@ async def test_unpark_unparked_car(db: UnitOfWork):
 
     with pytest.raises(CarIsNotParkedException):
         await db.cars.unpark_car(unpark_car=unpark_car)
+
+
+async def test_check_car_status_uses_for_update():
+    session = AsyncMock()
+    session.scalars.return_value = MagicMock(first=MagicMock(return_value=None))
+
+    await CarRepository(session).check_car_status("db777xH")
+
+    select_stmt = session.scalars.call_args.args[0]
+    sql = str(select_stmt.compile(dialect=postgresql.dialect()))
+    assert "FOR UPDATE" in sql
