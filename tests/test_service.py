@@ -36,8 +36,8 @@ async def test_get_car_parking_price_and_time_short_term(db: UnitOfWork):
 
     price_data = await CarService(db)._get_car_parking_price_and_time(car)
     assert isinstance(price_data, CarParkingAndPriceSchema)
-    assert price_data.model_dump()["price_time_data"]["price"] == "Стоимость: 400.0 руб."
-    assert price_data.model_dump()["price_time_data"]["park_time"] == "Время парковки: 30.0 мин."
+    assert price_data.model_dump()["price_time_data"]["price"] == 400.0
+    assert price_data.model_dump()["price_time_data"]["park_time"] == 30.0
 
 
 async def test_get_car_parking_price_and_time_mid_term(db: UnitOfWork):
@@ -54,8 +54,8 @@ async def test_get_car_parking_price_and_time_mid_term(db: UnitOfWork):
 
     price_data = await CarService(db)._get_car_parking_price_and_time(car)
     assert isinstance(price_data, CarParkingAndPriceSchema)
-    assert price_data.model_dump()["price_time_data"]["price"] == "Стоимость: 760.0 руб."
-    assert price_data.model_dump()["price_time_data"]["park_time"] == "Время парковки: 80.0 мин."
+    assert price_data.model_dump()["price_time_data"]["price"] == 760.0
+    assert price_data.model_dump()["price_time_data"]["park_time"] == 80.0
 
 
 async def test_get_car_parking_price_and_time_long_term(db: UnitOfWork):
@@ -72,8 +72,8 @@ async def test_get_car_parking_price_and_time_long_term(db: UnitOfWork):
 
     price_data = await CarService(db)._get_car_parking_price_and_time(car)
     assert isinstance(price_data, CarParkingAndPriceSchema)
-    assert price_data.model_dump()["price_time_data"]["price"] == "Стоимость: 1719.0 руб."
-    assert price_data.model_dump()["price_time_data"]["park_time"] == "Время парковки: 217.0 мин."
+    assert price_data.model_dump()["price_time_data"]["price"] == 1719.0
+    assert price_data.model_dump()["price_time_data"]["park_time"] == 217.0
 
 
 async def test_get_cars(db: UnitOfWork):

@@ -49,9 +49,7 @@ class CarService:
         price = Pricing(set_price_strategy).get_park_price(park_time)
 
         price_time = CarParkTimePriceSchema(
-            **{
-                "park_time": f"Время парковки: {park_time} мин.",
-                "price": f"Стоимость: {price} руб.",
-            },
+            park_time=park_time,
+            price=price,
         )
         return CarParkingAndPriceSchema(parking_data=car, price_time_data=price_time)
