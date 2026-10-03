@@ -9,7 +9,7 @@ from app.domains.v1.cars.schemas import (
 )
 from app.errors.schemas import ErrorResponse
 
-router = APIRouter(prefix="/cars", tags=["cars 🚗🚙🚓"])
+router = APIRouter(prefix="/v1/cars", tags=["cars 🚗🚙🚓"])
 
 
 @router.get("/", response_model=list[CarParkingAndPriceSchema])
@@ -27,7 +27,7 @@ async def get_car_list_by_number(cars: CarServiceDep, car_number: str):
 
 
 @router.post(
-    "/park",
+    "/park/",
     response_model=CarReadSchema,
     summary="Паркование машины по номеру",
     status_code=status.HTTP_201_CREATED,
@@ -43,7 +43,7 @@ async def park_car(cars: CarServiceDep, park_car: CarParkSchema):
 
 
 @router.patch(
-    "/unpark",
+    "/unpark/",
     summary="Убрать машину из парковки по номеру",
     response_model=CarParkingAndPriceSchema,
     responses={
