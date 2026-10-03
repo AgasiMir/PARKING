@@ -7,8 +7,8 @@ from app.models.car import CarStatus
 
 
 class CarParkTimePriceSchema(BaseModel):
-    park_time: str
-    price: str
+    park_time: float
+    price: float
 
 
 class CarReadSchema(BaseModel):
