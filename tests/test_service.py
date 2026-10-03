@@ -1,0 +1,135 @@
+from datetime import datetime
+from uuid import uuid4
+
+import pytest
+from pydantic import ValidationError
+
+from app.domains.v1.cars.schemas import (
+    CarParkingAndPriceSchema,
+    CarParkSchema,
+    CarReadSchema,
+    CarUnparkSchema,
+)
+from app.domains.v1.cars.service import CarService
+from app.errors.python_exceptions import (
+    CarIsAlreadyParkedException,
+    CarIsNotParkedException,
+    CarNotFoundException,
+)
+from app.models.car import CarStatus
+from app.uow import UnitOfWork
+
+
+async def test_get_car_parking_price_and_time_short_term(db: UnitOfWork):
+    car = CarReadSchema(
+        id=uuid4(),
+        mark="Toyota",
+        model="Corolla",
+        number="ak47TT",
+        color="red",
+        status=CarStatus.parked,
+        created_at=datetime(2026, 10, 3, 12, 0, 0),
+        updated_at=datetime(2026, 10, 3, 12, 30, 0),
+    )
+
+    price_data = await CarService(db)._get_car_parking_price_and_time(car)
+    assert isinstance(price_data, CarParkingAndPriceSchema)
+    assert price_data.model_dump()["price_time_data"]["price"] == "Стоимость: 400.0 руб."
+    assert price_data.model_dump()["price_time_data"]["park_time"] == "Время парковки: 30.0 мин."
+
+
+async def test_get_car_parking_price_and_time_mid_term(db: UnitOfWork):
+    car = CarReadSchema(
+        id=uuid4(),
+        mark="Toyota",
+        model="Corolla",
+        number="ak47TT",
+        color="red",
+        status=CarStatus.parked,
+        created_at=datetime(2026, 10, 3, 12, 0, 0),
+        updated_at=datetime(2026, 10, 3, 13, 20, 0),
+    )
+
+    price_data = await CarService(db)._get_car_parking_price_and_time(car)
+    assert isinstance(price_data, CarParkingAndPriceSchema)
+    assert price_data.model_dump()["price_time_data"]["price"] == "Стоимость: 760.0 руб."
+    assert price_data.model_dump()["price_time_data"]["park_time"] == "Время парковки: 80.0 мин."
+
+
+async def test_get_car_parking_price_and_time_long_term(db: UnitOfWork):
+    car = CarReadSchema(
+        id=uuid4(),
+        mark="Toyota",
+        model="Corolla",
+        number="ak47TT",
+        color="red",
+        status=CarStatus.parked,
+        created_at=datetime(2026, 10, 3, 12, 0, 0),
+        updated_at=datetime(2026, 10, 3, 15, 37, 0),
+    )
+
+    price_data = await CarService(db)._get_car_parking_price_and_time(car)
+    assert isinstance(price_data, CarParkingAndPriceSchema)
+    assert price_data.model_dump()["price_time_data"]["price"] == "Стоимость: 1719.0 руб."
+    assert price_data.model_dump()["price_time_data"]["park_time"] == "Время парковки: 217.0 мин."
+
+
+async def test_get_cars(db: UnitOfWork):
+    cars = await CarService(db).get_cars()
+    assert isinstance(cars, list)
+
+
+async def test_get_car_list_by_number(db: UnitOfWork):
+    cars = await CarService(db).get_car_list_by_number("ak47TT")
+    assert isinstance(cars, list)
+    assert len(cars) == 0
+
+
+async def test_park_car(db: UnitOfWork):
+    park_car = CarParkSchema(mark="Toyota", model="Corolla", number="ak47TT", color="red")
+    car = await CarService(db).park_car(park_car=park_car)
+    assert isinstance(car, CarReadSchema)
+
+
+async def test_park_parked_car(db: UnitOfWork):
+    park_car = CarParkSchema(mark="Toyota", model="Corolla", number="ak47TT", color="red")
+    car = await CarService(db).park_car(park_car=park_car)
+    assert isinstance(car, CarReadSchema)
+
+    with pytest.raises(CarIsAlreadyParkedException):
+        await CarService(db).park_car(park_car=park_car)
+
+
+async def test_unpark_car(db: UnitOfWork):
+    park_car = CarParkSchema(mark="Toyota", model="Corolla", number="ak47TT", color="red")
+    car = await CarService(db).park_car(park_car=park_car)
+    assert isinstance(car, CarReadSchema)
+
+    unpark_car = CarUnparkSchema(number=car.number)
+    unparked_car = await CarService(db).unpark_car(unpark_car=unpark_car)
+    assert isinstance(unparked_car, CarParkingAndPriceSchema)
+
+
+async def test_unpark_not_existing_car(db: UnitOfWork):
+    unpark_car = CarUnparkSchema(number="ak47TT")
+    with pytest.raises(CarNotFoundException):
+        await CarService(db).unpark_car(unpark_car=unpark_car)
+
+
+async def test_unpark_unparked_car(db: UnitOfWork):
+    park_car = CarParkSchema(mark="Toyota", model="Corolla", number="ak47TT", color="red")
+    car = await CarService(db).park_car(park_car=park_car)
+    assert isinstance(car, CarReadSchema)
+
+    unpark_car = CarUnparkSchema(number=car.number)
+    unparked_car = await CarService(db).unpark_car(unpark_car=unpark_car)
+    assert isinstance(unparked_car, CarParkingAndPriceSchema)
+
+    with pytest.raises(CarIsNotParkedException):
+        await CarService(db).unpark_car(unpark_car=unpark_car)
+
+
+async def test_unpark_car_with_wrong_number(db: UnitOfWork):
+    with pytest.raises(ValidationError):
+        unpark_car = CarUnparkSchema(number="ak47TTxxx")
+        await CarService(db).unpark_car(unpark_car=unpark_car)
