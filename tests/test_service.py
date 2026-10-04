@@ -9,8 +9,8 @@ from app.core.database import async_session_null_pool
 from app.domains.v1.cars.schemas import (
     CarParkingAndPriceSchema,
     CarParkSchema,
-    CarReadSchema,
     CarUnparkSchema,
+    ParkingReadSchema,
 )
 from app.domains.v1.cars.service import CarService
 from app.errors.python_exceptions import (
@@ -23,7 +23,7 @@ from app.uow import UnitOfWork
 
 
 async def test_get_car_parking_price_and_time_short_term(db: UnitOfWork):
-    car = CarReadSchema(
+    car = ParkingReadSchema(
         id=uuid4(),
         mark="Toyota",
         model="Corolla",
@@ -41,7 +41,7 @@ async def test_get_car_parking_price_and_time_short_term(db: UnitOfWork):
 
 
 async def test_get_car_parking_price_and_time_mid_term(db: UnitOfWork):
-    car = CarReadSchema(
+    car = ParkingReadSchema(
         id=uuid4(),
         mark="Toyota",
         model="Corolla",
@@ -59,7 +59,7 @@ async def test_get_car_parking_price_and_time_mid_term(db: UnitOfWork):
 
 
 async def test_get_car_parking_price_and_time_long_term(db: UnitOfWork):
-    car = CarReadSchema(
+    car = ParkingReadSchema(
         id=uuid4(),
         mark="Toyota",
         model="Corolla",
@@ -90,13 +90,13 @@ async def test_get_car_list_by_number(db: UnitOfWork):
 async def test_park_car(db: UnitOfWork):
     park_car = CarParkSchema(mark="Toyota", model="Corolla", number="ak47TT", color="red")
     car = await CarService(db).park_car(park_car=park_car)
-    assert isinstance(car, CarReadSchema)
+    assert isinstance(car, ParkingReadSchema)
 
 
 async def test_park_parked_car(db: UnitOfWork):
     park_car = CarParkSchema(mark="Toyota", model="Corolla", number="ak47TT", color="red")
     car = await CarService(db).park_car(park_car=park_car)
-    assert isinstance(car, CarReadSchema)
+    assert isinstance(car, ParkingReadSchema)
 
     with pytest.raises(CarIsAlreadyParkedException):
         await CarService(db).park_car(park_car=park_car)
@@ -105,7 +105,7 @@ async def test_park_parked_car(db: UnitOfWork):
 async def test_unpark_car(db: UnitOfWork):
     park_car = CarParkSchema(mark="Toyota", model="Corolla", number="ak47TT", color="red")
     car = await CarService(db).park_car(park_car=park_car)
-    assert isinstance(car, CarReadSchema)
+    assert isinstance(car, ParkingReadSchema)
 
     unpark_car = CarUnparkSchema(number=car.number)
     unparked_car = await CarService(db).unpark_car(unpark_car=unpark_car)
@@ -121,7 +121,7 @@ async def test_unpark_not_existing_car(db: UnitOfWork):
 async def test_unpark_unparked_car(db: UnitOfWork):
     park_car = CarParkSchema(mark="Toyota", model="Corolla", number="ak47TT", color="red")
     car = await CarService(db).park_car(park_car=park_car)
-    assert isinstance(car, CarReadSchema)
+    assert isinstance(car, ParkingReadSchema)
 
     unpark_car = CarUnparkSchema(number=car.number)
     unparked_car = await CarService(db).unpark_car(unpark_car=unpark_car)

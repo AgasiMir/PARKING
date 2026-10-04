@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from app.domains.v1.cars.schemas import CarParkingAndPriceSchema, CarParkSchema, CarReadSchema
+from app.domains.v1.cars.schemas import CarParkingAndPriceSchema, CarParkSchema, ParkingReadSchema
 from app.errors.python_exceptions import CarIsNotParkedException, CarNotFoundException
 
 
@@ -40,14 +40,14 @@ async def test_park_car(async_client):
     park_car = CarParkSchema(mark="Toyota", model="Corolla", number="ak47TT", color="red")
     park = await async_client.post("/v1/cars/park/", json=park_car.model_dump())
     assert park.status_code == 201
-    assert isinstance(CarReadSchema(**park.json()), CarReadSchema)
+    assert isinstance(ParkingReadSchema(**park.json()), ParkingReadSchema)
 
 
 async def test_park_car_parked_car(async_client):
     park_car = CarParkSchema(mark="Toyota", model="Corolla", number="ak47TT", color="red")
     park = await async_client.post("/v1/cars/park/", json=park_car.model_dump())
     assert park.status_code == 201
-    assert isinstance(CarReadSchema(**park.json()), CarReadSchema)
+    assert isinstance(ParkingReadSchema(**park.json()), ParkingReadSchema)
 
     park = await async_client.post("/v1/cars/park/", json=park_car.model_dump())
     assert park.status_code == 409
@@ -58,7 +58,7 @@ async def test_unpark_car(async_client):
     park_car = CarParkSchema(mark="Toyota", model="Corolla", number="ak47TT", color="red")
     park = await async_client.post("/v1/cars/park/", json=park_car.model_dump())
     assert park.status_code == 201
-    assert isinstance(CarReadSchema(**park.json()), CarReadSchema)
+    assert isinstance(ParkingReadSchema(**park.json()), ParkingReadSchema)
 
     unpark = await async_client.patch("/v1/cars/unpark/", json={"number": "ak47TT"})
     assert unpark.status_code == 200
