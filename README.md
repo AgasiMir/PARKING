@@ -213,6 +213,28 @@ PATCH /v1/cars/unpark/
 
 Логика выбора зоны — [`app/park_price/get_price.py`](app/park_price/get_price.py), формулы — [`app/park_price/pricing_strategies.py`](app/park_price/pricing_strategies.py).
 
+
+### Метрики Prometheus
+
+Приложение предоставляет метрики по адресу `/metrics` (экспортируются через `prometheus-client`):
+
+- `http_requests_total` — общее количество HTTP-запросов (Counter) с лейблами `method`, `endpoint`, `status_code`
+- `http_request_duration_seconds` — время выполнения HTTP-запросов (Histogram) с лейблами `method`, `endpoint`, `status_code` и бакетами [0.1, 0.3, 0.5, 1.0, 2.0, 5.0] секунд
+- `active_connections` — текущее количество активных соединений (Gauge) с лейблом `app`
+- `active_requests` — количество активных HTTP-запросов в данный момент (Gauge) с лейблами `method`, `endpoint`
+
+Метрики собираются автоматически через middleware `metrics_middleware.py` и обновляются в реальном времени.
+
+### Настройки Grafana
+
+   - Перейти по `http://localhost:3000` (если запущен)
+   - В меню Data sources выбрать Prometheus 
+   - Указать `http://prometheus:9090` в Prometheus server URL
+   - Нажать Save&Test
+   - В меню Dashboards выбрать Import 
+   - Вставить содержимое файла grafana_dashboad.json и нажать Load, а затем Import
+
+
 ## 📜 Логирование
 
 Структурированное логирование на базе [loguru](https://github.com/Delgan/loguru): настройка выполняется в `lifespan` при старте приложения ([`app/main.py`](app/main.py)), реализация — [`app/middlewares/log.py`](app/middlewares/log.py).
