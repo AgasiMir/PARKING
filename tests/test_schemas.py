@@ -6,7 +6,12 @@ from uuid import UUID, uuid4
 from pydantic import ValidationError
 from pytest import mark, param, raises
 
-from app.domains.v1.cars.schemas import CarUnparkSchema, CursorPaginationSchema, ParkingReadSchema
+from app.domains.v1.cars.schemas import (
+    CarParkSchema,
+    CarUnparkSchema,
+    CursorPaginationSchema,
+    ParkingReadSchema,
+)
 from app.models.car import CarStatus
 
 
@@ -377,3 +382,26 @@ async def test_cursor_pagination(
 ):
     with exc:
         CursorPaginationSchema(limit=limit, cursor_id=cursor_id, created_at=created_at)
+
+
+@mark.parametrize(
+    "mark, model, number, color, exc",
+    [
+        param("Toyota", "Corolla", "ал756р", "red", does_not_raise(), id="correct_request"),
+        param("Toyota", "Corolla", "ал756z", "red", raises(ValidationError), id="mixed_error"),
+        param("Toyota", "Corolla", "zv756я", "red", raises(ValidationError), id="mixed_error"),
+        param("Toyota", "Corolla", "zv7565", "red", raises(ValidationError), id="no_last_letter"),
+        param("Toyota", "Corolla", "2v756x", "red", raises(ValidationError), id="no_first_letter"),
+        param("Toyota", "Corolla", "yv7ssx", "red", raises(ValidationError), id="digits_error"),
+        param("Toyota", "Corolla", "yv76543z", "red", raises(ValidationError), id="digits_error_2"),
+    ],
+)
+async def test_car_park_schema(
+    mark: str,
+    model: str,
+    number: str,
+    color: str,
+    exc: AbstractContextManager[object],
+):
+    with exc:
+        CarParkSchema(mark=mark, model=model, number=number, color=color)

@@ -25,11 +25,11 @@ class CarParkSchema(BaseModel):
     number: str = Field(
         min_length=6,
         max_length=8,
-        pattern= r'^(?:'
-            r'[A-Za-z]{2}\d{2,4}[A-Za-z]*[A-Za-z]'
-            r'|'
-            r'[А-Яа-яЁё]{2}\d{2,4}[А-Яа-яЁё]*[А-Яа-яЁё]'
-            r')$',
+        pattern=r"^(?:"
+        r"[A-Za-z]{2}\d{2,4}[A-Za-z]*[A-Za-z]"
+        r"|"
+        r"[А-Яа-яЁё]{2}\d{2,4}[А-Яа-яЁё]*[А-Яа-яЁё]"
+        r")$",
     )
     color: str | None = Field(min_length=2, max_length=50)
 
