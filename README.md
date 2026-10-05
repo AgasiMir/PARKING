@@ -74,7 +74,7 @@ uv sync
 cp .env.example .env.local
 
 # 3. Поднять PostgreSQL
-docker compose up -d
+docker compose -f compose.dev.yaml up -d
 
 # 4. Применить миграции
 uv run alembic upgrade head
