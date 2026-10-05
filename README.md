@@ -13,6 +13,7 @@
 - **Единый формат ошибок** — `{"error": "...", "message": "..."}` с понятными HTTP-кодами (400/404/409); ошибки валидации параметров и тела запроса — стандартный формат FastAPI (422);
 - **Валидация госномера** — при парковке поле `number` проверяется регулярным выражением: 2 буквы (латиница или кириллица) + 2–4 цифры + обязательная буква в конце (итого 6–8 символов); некорректный формат отклоняется с `422`;
 - **Структурированные JSON-логи** — каждый запрос логируется (loguru) с уникальным `request_id`, методом, путём, статусом и временем обработки; ответу добавляется заголовок `X-Request-ID`;
+- **Мониторинг** — метрики Prometheus по `/health/metrics` (RPS, латентность p50/p90/p99, активные запросы) и готовый дашборд Grafana;
 - **Тесты** — покрытие ~95% (юнит + интеграционные + конкурентные сценарии + пагинация + валидация схем).
 
 ## 🛠 Технологический стек
@@ -30,6 +31,7 @@
 | Пакетный менеджер | uv |
 | Качество кода | ruff, mypy |
 | Тесты | pytest, pytest-asyncio, pytest-cov, httpx |
+| Мониторинг | Prometheus, Grafana, prometheus-client |
 
 ## 📁 Структура проекта
 
@@ -54,6 +56,10 @@ app/
 ├── migrations/                  # Alembic-миграции
 └── park_price/                  # Тарифные стратегии ценообразования
 tests/                           # Юнит-, интеграционные, router-, конкурентные тесты и тесты схем
+prometheus/
+│   └── prometheus.yml            # Конфигурация Prometheus: scrape-таргеты, интервалы
+grafana/
+│   └── grafana_dashboard.json    # Дашборд Grafana (импорт через UI)
 ```
 
 ## 🚀 Быстрый старт
@@ -84,6 +90,8 @@ uv run uvicorn app.main:app --reload
 ```
 
 Интерактивная документация API — <http://localhost:8000/docs> (Swagger UI).
+
+**Мониторинг (опционально):** запуск Prometheus и Grafana описан в разделе **📊 Мониторинг (Prometheus + Grafana)** ниже.
 
 ## 🔌 API
 
@@ -213,27 +221,47 @@ PATCH /v1/cars/unpark/
 
 Логика выбора зоны — [`app/park_price/get_price.py`](app/park_price/get_price.py), формулы — [`app/park_price/pricing_strategies.py`](app/park_price/pricing_strategies.py).
 
+## 📊 Мониторинг (Prometheus + Grafana)
 
-### Метрики Prometheus
+Приложение экспонирует метрики в формате Prometheus по адресу **`GET /health/metrics`** ([`app/domains/health.py`](app/domains/health.py:7)). Метрики собираются автоматически middleware [`app/middlewares/metrics_middleware.py`](app/middlewares/metrics_middleware.py) и обновляются в реальном времени.
 
-Приложение предоставляет метрики по адресу `/metrics` (экспортируются через `prometheus-client`):
+### Собираемые метрики
 
-- `http_requests_total` — общее количество HTTP-запросов (Counter) с лейблами `method`, `endpoint`, `status_code`
-- `http_request_duration_seconds` — время выполнения HTTP-запросов (Histogram) с лейблами `method`, `endpoint`, `status_code` и бакетами [0.1, 0.3, 0.5, 1.0, 2.0, 5.0] секунд
-- `active_connections` — текущее количество активных соединений (Gauge) с лейблом `app`
-- `active_requests` — количество активных HTTP-запросов в данный момент (Gauge) с лейблами `method`, `endpoint`
+- `http_requests_total` — общее количество HTTP-запросов (Counter) с лейблами `method`, `endpoint`, `status_code`;
+- `http_request_duration_seconds` — время выполнения HTTP-запросов (Histogram) с лейблами `method`, `endpoint`, `status_code` и бакетами [0.1, 0.3, 0.5, 1.0, 2.0, 5.0] секунд;
+- `active_requests` — количество активных (in-progress) HTTP-запросов в данный момент (Gauge) с лейблами `method`, `endpoint`.
 
-Метрики собираются автоматически через middleware `metrics_middleware.py` и обновляются в реальном времени.
+### Запуск
 
-### Настройки Grafana
+Prometheus и Grafana поднимаются через [`compose.prod.yaml`](compose.prod.yaml) — сервисы находятся в одной сети `parking_network` с приложением:
 
-   - Перейти по `http://localhost:3000` (если запущен)
-   - В меню Data sources выбрать Prometheus 
-   - Указать `http://prometheus:9090` в Prometheus server URL
-   - Нажать Save&Test
-   - В меню Dashboards выбрать Import 
-   - Вставить содержимое файла grafana_dashboad.json и нажать Load, а затем Import
+```bash
+# создать prod-окружение, если ещё не создано
+cp .env.example .env.prod
 
+# поднять Prometheus и Grafana
+docker compose -f compose.prod.yaml up -d prometheus grafana
+```
+
+- **Prometheus** — UI на <http://localhost:9090>: сбор метрик каждые 15 секунд (job `fastapi-app`, таргет `parking:8000`, конфиг [`prometheus/prometheus.yml`](prometheus/prometheus.yml));
+- **Grafana** — UI на <http://localhost:3000>, вход `admin` / пароль из `GF_SECURITY_ADMIN_PASSWORD` (передаётся через `env_file: .env.prod`, см. [`compose.prod.yaml`](compose.prod.yaml); пароль по умолчанию обязательно сменить!).
+
+### Подключение Grafana к Prometheus и импорт дашборда
+
+1. **Data sources** → **Add data source** → **Prometheus**;
+2. В поле *Prometheus server URL* указать `http://prometheus:9090` (адрес внутри сети Docker);
+3. Нажать **Save & Test**;
+4. **Dashboards** → **Import** → загрузить файл [`grafana/grafana_dashboard.json`](grafana/grafana_dashboard.json) → **Load** → **Import**.
+
+### Панели дашборда
+
+| Панель | Запрос PromQL |
+|---|---|
+| RPS (Requests Per Second) | `rate(http_requests_total[1m])` |
+| Total Requests (Last 5m) | `sum by (method, endpoint, status_code)(increase(http_requests_total[5m]))` |
+| Latency Percentiles (p50, p90, p99) | `histogram_quantile` по `http_request_duration_seconds_bucket` |
+| Active Requests (In-Progress) | `active_requests` |
+| Top Slow Endpoints (p99, last 5m) | `histogram_quantile(0.99, ...)` по `http_request_duration_seconds_bucket` |
 
 ## 📜 Логирование
 
@@ -243,7 +271,7 @@ PATCH /v1/cars/unpark/
 - каждому запросу присваивается уникальный `request_id` (UUID), который возвращается в заголовке ответа **`X-Request-ID`** и через `ContextVar` подмешивается во все логи в рамках запроса — по нему можно проследить весь жизненный цикл запроса;
 - уровень записи зависит от статуса ответа: `INFO` (< 400), `WARNING` (4xx), `ERROR` (5xx); необработанные исключения дополнительно логируются со стектрейсом (`logger.exception`);
 - логи пишутся асинхронно (`enqueue=True`) в файл `logs/logs.log` в формате JSON (`serialize=True`): ротация при 10 МБ, архивация `zip`, хранение 30 дней, кодировка UTF-8;
-- служебные пути `/health`, `/metrics` и `/favicon.ico` не логируются;
+- служебные пути `/health/metrics` и `/favicon.ico` не логируются (скрейпы Prometheus не засоряют лог);
 - `diagnose=False` предотвращает утечку значений переменных в стектрейсах.
 
 ## 🧪 Тестирование
@@ -285,8 +313,10 @@ uv run pytest
 | `DB_HOST` | `localhost` | Хост БД |
 | `DB_PORT` | `6432` | Порт БД (локальный compose: `6432 → 5432`) |
 | `POSTGRES_DB` | `parking` | Имя БД |
+| `GF_SECURITY_ADMIN_USER` | `admin` | Логин администратора Grafana |
+| `GF_SECURITY_ADMIN_PASSWORD` | `admin` | Пароль администратора Grafana (обязательно сменить в проде!) |
 
-Тестовая среда использует те же переменные из `.env.test` (порт `16432`, база `test_db`, `ENVIRONMENT=TEST`).
+Переменные `GF_*` используются сервисом Grafana в [`compose.prod.yaml`](compose.prod.yaml) (через `env_file: .env.prod`). Тестовая среда использует те же переменные из `.env.test` (порт `16432`, база `test_db`, `ENVIRONMENT=TEST`).
 
 ## 🧹 Качество кода
 
