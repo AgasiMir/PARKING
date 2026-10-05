@@ -40,11 +40,9 @@ class CarService:
         price_time = [await self._get_car_parking_price_and_time(car) for car in cars]
 
         return ParkingPriceTimeCursorSchema(
-            **{
-                "parking_and_price_data": price_time,
-                "has_more": parking_data.has_more,
-                "next_cursor": parking_data.next_cursor,
-            }
+            parking_and_price_data=price_time,
+            has_more=parking_data.has_more,
+            next_cursor=parking_data.next_cursor,
         )
 
     async def park_car(self, park_car: CarParkSchema) -> ParkingReadSchema:
