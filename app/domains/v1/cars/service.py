@@ -36,14 +36,14 @@ class CarService:
             cursor_id=cursor_id,
             created_at=created_at,
         )
-        cars = [ParkingReadSchema.model_validate(car) for car in parking_data.model_dump()["cars"]]
+        cars = [ParkingReadSchema.model_validate(car) for car in parking_data.cars]
         price_time = [await self._get_car_parking_price_and_time(car) for car in cars]
 
         return ParkingPriceTimeCursorSchema(
             **{
                 "parking_and_price_data": price_time,
-                "has_more": parking_data.model_dump()["has_more"],
-                "next_cursor": parking_data.model_dump()["next_cursor"],
+                "has_more": parking_data.has_more,
+                "next_cursor": parking_data.next_cursor,
             }
         )
 
