@@ -33,7 +33,7 @@ async def test_get_parking_list_with_two_parkings(async_client):
     park = await async_client.post("/v1/cars/park/", json=park_car.model_dump())
     assert park.status_code == 201
 
-    park_car_2 = CarParkSchema(mark="Toyota", model="Camry", number="u12kff", color="red")
+    park_car_2 = CarParkSchema(mark="Toyota", model="Camry", number="us12kff", color="red")
     park_2 = await async_client.post("/v1/cars/park/", json=park_car_2.model_dump())
     assert park_2.status_code == 201
 
@@ -42,7 +42,7 @@ async def test_get_parking_list_with_two_parkings(async_client):
 
     # первая страница
     assert isinstance(ParkingPriceTimeCursorSchema(**res.json()), ParkingPriceTimeCursorSchema)
-    assert res.json()["parking_and_price_data"][0]["parking_data"]["number"] == "u12kff"
+    assert res.json()["parking_and_price_data"][0]["parking_data"]["number"] == "us12kff"
     assert res.json()["has_more"] is True
     assert res.json()["next_cursor"] is not None
 
@@ -85,7 +85,7 @@ async def test_get_car_parking_list_by_number(async_client):
     park = await async_client.post("/v1/cars/park/", json=park_car.model_dump())
     assert park.status_code == 201
 
-    park_car_2 = CarParkSchema(mark="Toyota", model="Camry", number="u12kff", color="red")
+    park_car_2 = CarParkSchema(mark="Toyota", model="Camry", number="us12kff", color="red")
     park_2 = await async_client.post("/v1/cars/park/", json=park_car_2.model_dump())
     assert park_2.status_code == 201
 
@@ -93,7 +93,7 @@ async def test_get_car_parking_list_by_number(async_client):
     assert res.status_code == 200
 
     assert isinstance(ParkingPriceTimeCursorSchema(**res.json()), ParkingPriceTimeCursorSchema)
-    assert res.json()["parking_and_price_data"][0]["parking_data"]["number"] == "u12kff"
+    assert res.json()["parking_and_price_data"][0]["parking_data"]["number"] == "us12kff"
     assert res.json()["has_more"] is False
     assert res.json()["next_cursor"] is None
 

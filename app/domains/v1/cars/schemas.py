@@ -11,7 +11,7 @@ class ParkingReadSchema(BaseModel):
     mark: str = Field(min_length=2, max_length=50)
     model: str = Field(min_length=2, max_length=50)
     number: str = Field(min_length=6, max_length=8)
-    color: str = Field(min_length=2, max_length=50)
+    color: str | None = Field(min_length=2, max_length=50)
     status: CarStatus = Field(description="Статус парковки")
     created_at: datetime = Field(description="Дата и время захода в парковку")
     updated_at: datetime = Field(description="Дата и время выхода из парковки")
@@ -22,8 +22,16 @@ class ParkingReadSchema(BaseModel):
 class CarParkSchema(BaseModel):
     mark: str = Field(min_length=2, max_length=50)
     model: str = Field(min_length=2, max_length=50)
-    number: str = Field(min_length=6, max_length=8)
-    color: str = Field(min_length=2, max_length=50)
+    number: str = Field(
+        min_length=6,
+        max_length=8,
+        pattern=r"^(?:"
+        r"[A-Za-z]{2}\d{2,4}[A-Za-z]*[A-Za-z]"
+        r"|"
+        r"[А-Яа-яЁё]{2}\d{2,4}[А-Яа-яЁё]*[А-Яа-яЁё]"
+        r")$",
+    )
+    color: str | None = Field(min_length=2, max_length=50)
 
 
 class CarUnparkSchema(BaseModel):
