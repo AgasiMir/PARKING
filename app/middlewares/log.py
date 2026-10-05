@@ -5,7 +5,7 @@ from uuid import uuid4
 from fastapi import Request
 from loguru import logger
 
-SKIP_PATHS = {"/health", "/metrics", "/favicon.ico"}
+SKIP_PATHS = {"/health/metrics", "/favicon.ico"}
 request_id_ctx: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 

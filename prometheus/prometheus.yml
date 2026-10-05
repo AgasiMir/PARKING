@@ -6,4 +6,4 @@ scrape_configs:
   - job_name: "fastapi-app"
     metrics_path: /health/metrics
     static_configs:
-      - targets: ["PARKING:8000"]
+      - targets: ["parking:8000"]
