@@ -24,7 +24,7 @@ async def get_cars(cars: CarServiceDep, cursor_pagination: CursorPaginationDep):
 
 @router.get(
     "/{car_number}",
-    # response_model=list[CarParkingAndPriceSchema],
+    response_model=ParkingPriceTimeCursorSchema,
     summary="Получить историю машины (заезд и выезд из парковки) по номеру",
 )
 async def get_car_list_by_number(

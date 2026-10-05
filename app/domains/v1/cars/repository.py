@@ -36,9 +36,9 @@ class CarRepository:
     async def get_parking_data(
         self,
         limit: int,
-        car_number: str | None,
-        cursor_id: UUID | None,
-        created_at: datetime | None,
+        car_number: str | None = None,
+        cursor_id: UUID | None = None,
+        created_at: datetime | None = None,
     ) -> ParkingReadSchemaWithCursor:
         # запрашиваем на одну запись больше, чтобы понять, есть ли следующая страница
         filters = []
@@ -87,23 +87,10 @@ class CarRepository:
             next_cursor=CursorReadSchema(
                 last_id=result[-1].id,
                 last_created_at=result[-1].created_at,
-            ),
-        )
-
-    async def get_cars(self) -> list[ParkingReadSchema]:
-        cars = await self.session.scalars(select(Car))
-        return [self._schema.model_validate(car) for car in cars.all()]
-
-    async def get_car_list_by_number(self, car_number: str) -> list[ParkingReadSchema]:
-        car = await self.session.scalars(
-            select(Car)
-            .where(Car.number == car_number)
-            .order_by(
-                Car.created_at.desc(),
             )
+            if has_more
+            else None,
         )
-
-        return [self._schema.model_validate(car) for car in car.all()]
 
     async def park_car(self, park_car: CarParkSchema) -> ParkingReadSchema:
         db_park = Car(**park_car.model_dump(), status=CarStatus.parked)

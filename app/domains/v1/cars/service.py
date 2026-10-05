@@ -23,19 +23,11 @@ class CarService:
     def __init__(self, uow: UnitOfWork):
         self.uow = uow
 
-    async def get_cars(self) -> list[CarParkingAndPriceSchema]:
-        cars = await self.uow.cars.get_cars()
-        return [await self._get_car_parking_price_and_time(car) for car in cars]
-
-    async def get_car_list_by_number(self, car_number: str) -> list[CarParkingAndPriceSchema]:
-        cars = await self.uow.cars.get_car_list_by_number(car_number=car_number)
-        return [await self._get_car_parking_price_and_time(car) for car in cars]
-
     async def get_parking_data(
         self,
         limit: int,
-        cursor_id: UUID | None,
-        created_at: datetime | None,
+        cursor_id: UUID | None = None,
+        created_at: datetime | None = None,
         car_number: str | None = None,
     ) -> ParkingPriceTimeCursorSchema:
         parking_data = await self.uow.cars.get_parking_data(
@@ -44,11 +36,9 @@ class CarService:
             cursor_id=cursor_id,
             created_at=created_at,
         )
-        # return parking_data
         cars = [ParkingReadSchema.model_validate(car) for car in parking_data.model_dump()["cars"]]
         price_time = [await self._get_car_parking_price_and_time(car) for car in cars]
 
-        # return price_time
         return ParkingPriceTimeCursorSchema(
             **{
                 "parking_and_price_data": price_time,
