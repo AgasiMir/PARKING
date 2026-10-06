@@ -16,7 +16,7 @@ def set_pricing_strategies(park_time: float):
         return "long"
 
 
-pricing_strategies_map = {
+pricing_strategies_map: dict[str, ParkPrice] = {
     "short": ShortTimeParkPrice(),
     "mid": MidTimeParkPrice(),
     "long": LongTimeParkPrice(),
