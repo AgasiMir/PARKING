@@ -10,6 +10,7 @@
 - **Курсорная пагинация** — список и история разбиваются на страницы (`limit` до 50), навигация по курсору `(id, created_at)` без дубликатов и пропусков; при одинаковых `created_at` порядок стабилизируется по `id` (tie-break);
 - **Динамическое ценообразование** — три тарифные зоны (короткая / средняя / длительная стоянка) через паттерн *Strategy*;
 - **Защита от гонок** — строковые блокировки `SELECT ... FOR UPDATE` + частичный уникальный индекс в PostgreSQL гарантируют единственную активную парковку на номер даже при параллельных запросах;
+- **Read/Write-сплиттинг (CQRS-lite)** — запись идёт в primary, чтение GET-ручек — со streaming-реплики PostgreSQL (WAL-репликация, лаг ~миллисекунды); read-only пользователь и транзакции `READ ONLY` защищают реплику от случайной записи;
 - **Единый формат ошибок** — `{"error": "...", "message": "..."}` с понятными HTTP-кодами (400/404/409); ошибки валидации параметров и тела запроса — стандартный формат FastAPI (422);
 - **Валидация госномера** — при парковке поле `number` проверяется регулярным выражением: 2 буквы (латиница или кириллица) + 2–4 цифры + обязательная буква в конце (итого 6–8 символов); некорректный формат отклоняется с `422`;
 - **Структурированные JSON-логи** — каждый запрос логируется (loguru) с уникальным `request_id`, методом, путём, статусом и временем обработки; ответу добавляется заголовок `X-Request-ID`;
@@ -25,7 +26,7 @@
 | ORM | SQLAlchemy 2.x (async) |
 | Драйвер БД | asyncpg |
 | Миграции | Alembic |
-| БД | PostgreSQL 17 |
+| БД | PostgreSQL 17 (primary + streaming-реплика) |
 | Валидация | Pydantic v2 |
 | Логирование | loguru |
 | Пакетный менеджер | uv |
@@ -39,11 +40,11 @@
 app/
 ├── main.py                      # Точка входа FastAPI
 ├── config.py                    # Настройки (pydantic-settings)
-├── uow.py                       # Паттерн Unit of Work
+├── uow.py                       # Unit of Work: UnitOfWork (primary) + ReadOnlyUnitOfWork (реплика)
 ├── middlewares/
 │   └── log.py                   # HTTP-логирование (loguru) + request_id
 ├── core/
-│   └── database.py              # Движки, фабрики сессий, naming convention
+│   └── database.py              # Движки и фабрики сессий primary и реплики, naming convention
 ├── domains/
 │   ├── dependencies.py          # FastAPI DI (Annotated), в т.ч. курсорная пагинация
 │   └── v1/cars/
@@ -53,8 +54,9 @@ app/
 │       └── repository.py        # Доступ к данным (SQL c курсорной выборкой)
 ├── errors/                      # Иерархия исключений + хендлеры
 ├── models/                      # SQLAlchemy-модели и миксины
-├── migrations/                  # Alembic-миграции
+├── migrations/                  # Alembic-миграции (+ авто-гранты для read-only пользователя)
 └── park_price/                  # Тарифные стратегии ценообразования
+├── docker/                      # Init-скрипты репликации (первичное развёртывание БД)
 tests/                           # Юнит-, интеграционные, router-, конкурентные тесты и тесты схем
 prometheus/
 │   └── prometheus.yml            # Конфигурация Prometheus: scrape-таргеты, интервалы
@@ -82,7 +84,7 @@ cp .env.example .env.local
 # 3. Поднять PostgreSQL
 docker compose -f compose.dev.yaml up -d
 
-# 4. Применить миграции
+# 4. Применить миграции (только primary — реплика получает схему через WAL)
 uv run alembic upgrade head
 
 # 5. Запустить сервер
@@ -92,6 +94,17 @@ uv run uvicorn app.main:app --reload
 Интерактивная документация API — <http://localhost:8000/docs> (Swagger UI).
 
 **Мониторинг (опционально):** запуск Prometheus и Grafana описан в разделе **📊 Мониторинг (Prometheus + Grafana)** ниже.
+
+**Важно:** при самом первом запуске compose init-скрипты репликации выполняются только на пустых volumes. Если БД поднимались раньше — пересоздайте окружение: `docker compose -f compose.dev.yaml down -v && docker compose -f compose.dev.yaml up -d`.
+
+### Запуск в проде (всё в контейнерах: app + primary + реплика + мониторинг)
+
+```bash
+cp .env.example .env.prod   # заполнить реальными паролями (см. таблицу переменных ниже)
+docker compose -f compose.prod.yaml up -d --build
+```
+
+Контейнер `parking` перед стартом uvicorn сам применяет миграции к primary (`alembic upgrade head`); реплика получает схему через WAL.
 
 ## 🔌 API
 
@@ -221,6 +234,41 @@ PATCH /v1/cars/unpark/
 
 Логика выбора зоны — [`app/park_price/get_price.py`](app/park_price/get_price.py), формулы — [`app/park_price/pricing_strategies.py`](app/park_price/pricing_strategies.py).
 
+## 🗄 Архитектура БД: primary + streaming-реплика
+
+Приложение использует схему **read/write-сплиттинга** (упрощённый CQRS):
+
+| Операция | Куда идёт | Код |
+|---|---|---|
+| Запись (`park`, `unpark`, `FOR UPDATE`) | primary | [`UnitOfWork`](app/uow.py:10) + `DBDep` |
+| Чтение (`GET`-ручки, курсорная пагинация) | реплика | [`ReadOnlyUnitOfWork`](app/uow.py:41) + `ReadDBDep` |
+
+```mermaid
+flowchart LR
+    App[FastAPI app] -->|write| P[(postgres<br/>primary)]
+    App -->|read| R[(postgres_replica)]
+    P -- "WAL stream (лаг ~мс)" --> R
+```
+
+- реплика — физическая копия кластера, поднимается через `pg_basebackup --write-recovery-conf` ([`docker/postgres-replica-init/init-replica.sh`](docker/postgres-replica-init/init-replica.sh)) и вечно тянет WAL с primary — без расписаний и ручной синхронизации;
+- primary настроен флагами запуска в compose: `wal_level=replica`, `max_wal_senders`, `max_replication_slots`, `wal_keep_size`;
+- на реплике приложение работает под read-only пользователем (`postgres_r`) в транзакциях `SET TRANSACTION READ ONLY` — случайная запись невозможна;
+- миграции (alembic) применяются **только к primary**; схема и права (`GRANT SELECT`) доезжают до реплики через WAL автоматически ([`app/migrations/env.py`](app/migrations/env.py:64));
+- `SELECT ... FOR UPDATE` требует primary, поэтому все операции изменения статуса машины идут через [`UnitOfWork`](app/uow.py:10).
+
+### Проверка репликации
+
+```bash
+# на primary — состояние потока WAL (ожидаем state = streaming)
+docker exec parking_db psql -U postgres -c \
+  "SELECT application_name, state, replay_lag FROM pg_stat_replication;"
+
+# на реплике — режим recovery (ожидаем t)
+docker exec parking_db_replica psql -U postgres_r -d parking -c "SELECT pg_is_in_recovery();"
+```
+
+> **Нюанс:** из-за миллисекундного лага реплики возможна ситуация «записал → сразу прочитал старые данные». Для этого проекта это приемлемо; если критично — чтение после записи направляйте на primary.
+
 ## 📊 Мониторинг (Prometheus + Grafana)
 
 Приложение экспонирует метрики в формате Prometheus по адресу **`GET /health/metrics`** ([`app/domains/health.py`](app/domains/health.py:7)). Метрики собираются автоматически middleware [`app/middlewares/metrics_middleware.py`](app/middlewares/metrics_middleware.py) и обновляются в реальном времени.
@@ -289,6 +337,8 @@ uv run pytest
 
 Тесты используют реальный PostgreSQL (`NullPool`-сессии, отдельное соединение на каждый тест) и покрывают:
 
+> В тестах реплика не поднимается ([`compose.test.yaml`](compose.test.yaml) содержит только primary): read-зависимость переопределяется на ту же тестовую БД в [`tests/conftest.py`](tests/conftest.py:22), поэтому все ручки работают против одного тестового инстанса.
+
 - **конкурентные сценарии** — параллельные `park`/`unpark` одного номера из нескольких транзакций: гонка разрешается через `FOR UPDATE` и частичный уникальный индекс, в базе остаётся ровно одна `parked`-запись;
 - **курсорную пагинацию** — `has_more`, `next_cursor`, переходы между страницами без дубликатов и потерь, tie-break по `id` при равных `created_at`, фильтрация по номеру;
 - **валидацию курсора** — `cursor_id` и `created_at` только парой (`422`), границы `limit` (1–50);
@@ -313,10 +363,20 @@ uv run pytest
 | `DB_HOST` | `localhost` | Хост БД |
 | `DB_PORT` | `6432` | Порт БД (локальный compose: `6432 → 5432`) |
 | `POSTGRES_DB` | `parking` | Имя БД |
+| `DB_REPLICA_DRIVER` | `postgresql+asyncpg` | Драйвер реплики |
+| `POSTGRES_REPLICA_USER` | `postgres_r` | Read-only пользователь приложения на реплике |
+| `POSTGRES_REPLICA_PASSWORD` | `postgres` | Пароль read-only пользователя |
+| `DB_REPLICA_HOST` | `localhost` | Хост реплики (в prod: `postgres_replica`) |
+| `DB_REPLICA_PORT` | `7432` | Порт реплики на хосте (в prod-сети: `5432`) |
+| `POSTGRES_REPLICA_DB` | `parking_r` | Имя БД на реплике (при streaming-репликации совпадает с primary: `parking`) |
+| `REPLICATION_USER` | — | Пользователь потока WAL (`pg_basebackup` / standby) |
+| `REPLICATION_PASSWORD` | — | Пароль пользователя потока WAL |
 | `GF_SECURITY_ADMIN_USER` | `admin` | Логин администратора Grafana |
 | `GF_SECURITY_ADMIN_PASSWORD` | `admin` | Пароль администратора Grafana (обязательно сменить в проде!) |
 
 Переменные `GF_*` используются сервисом Grafana в [`compose.prod.yaml`](compose.prod.yaml) (через `env_file: .env.prod`). Тестовая среда использует те же переменные из `.env.test` (порт `16432`, база `test_db`, `ENVIRONMENT=TEST`).
+
+Приоритет источников настроек в [`app/config.py`](app/config.py:45): переменные окружения → `.env.prod` → `.env.local`. Файлы в списке `env_file` pydantic-settings идут по возрастанию приоритета, поэтому локально побеждает `.env.local`, а в prod-контейнере его нет — действуют переменные из compose (у них приоритет выше всех). Переменные для тестов подгружает `pytest.ini` (`env_files = .env.test`) — они задаются как переменные окружения и всегда главнее файлов.
 
 ## 🧹 Качество кода
 
