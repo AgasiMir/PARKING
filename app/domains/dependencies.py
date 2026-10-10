@@ -6,10 +6,10 @@ from fastapi import Depends, Query
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
-from app.core.database import async_session
+from app.core.database import async_replica_session, async_session
 from app.domains.v1.cars.schemas import CursorPaginationSchema
 from app.domains.v1.cars.service import CarService
-from app.uow import UnitOfWork
+from app.uow import ReadOnlyUnitOfWork, UnitOfWork
 
 
 async def get_db():
@@ -25,6 +25,21 @@ async def get_car_service(uow: DBDep):
 
 
 CarServiceDep = Annotated[CarService, Depends(get_car_service)]
+
+
+async def get_read_db():
+    async with ReadOnlyUnitOfWork(session_factory=async_replica_session) as session:
+        yield session
+
+
+ReadDBDep = Annotated[ReadOnlyUnitOfWork, Depends(get_read_db)]
+
+
+async def get_car_read_service(uow: ReadDBDep):
+    return CarService(uow=uow)
+
+
+CarServiceReadOnlyDep = Annotated[CarService, Depends(get_car_read_service)]
 
 
 async def get_cursor_pagination(

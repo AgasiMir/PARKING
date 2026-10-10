@@ -67,6 +67,17 @@ def do_run_migrations(connection: Connection) -> None:
     with context.begin_transaction():
         context.run_migrations()
 
+    # Выдаём read-only права пользователю реплики на таблицы, созданные
+    # этой миграцией. Init-скрипт primary отрабатывает один раз при создании
+    # volume (когда таблиц ещё нет), поэтому надёжнее выдавать гранты здесь:
+    # GRANT — это DDL, он попадёт в WAL и сам приедет на реплику.
+    replica_user = settings.POSTGRES_REPLICA_USER
+    connection.exec_driver_sql(f"GRANT USAGE ON SCHEMA public TO {replica_user}")
+    connection.exec_driver_sql(f"GRANT SELECT ON ALL TABLES IN SCHEMA public TO {replica_user}")
+    connection.exec_driver_sql(
+        f"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO {replica_user}"
+    )
+
 
 async def run_async_migrations() -> None:
     """In this scenario we need to create an Engine

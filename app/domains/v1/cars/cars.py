@@ -1,6 +1,6 @@
 from fastapi import APIRouter, status
 
-from app.domains.dependencies import CarServiceDep, CursorPaginationDep
+from app.domains.dependencies import CarServiceDep, CarServiceReadOnlyDep, CursorPaginationDep
 from app.domains.v1.cars.schemas import (
     CarParkingAndPriceSchema,
     CarParkSchema,
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/v1/cars", tags=["cars 🚗🚙🚓"])
 
 
 @router.get("/", response_model=ParkingPriceTimeCursorSchema)
-async def get_cars(cars: CarServiceDep, cursor_pagination: CursorPaginationDep):
+async def get_cars(cars: CarServiceReadOnlyDep, cursor_pagination: CursorPaginationDep):
     return await cars.get_parking_data(
         limit=cursor_pagination.limit,
         created_at=cursor_pagination.created_at,
@@ -28,7 +28,7 @@ async def get_cars(cars: CarServiceDep, cursor_pagination: CursorPaginationDep):
     summary="Получить историю машины (заезд и выезд из парковки) по номеру",
 )
 async def get_car_list_by_number(
-    cars: CarServiceDep,
+    cars: CarServiceReadOnlyDep,
     cursor_pagination: CursorPaginationDep,
     car_number: str | None = None,
 ):

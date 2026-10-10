@@ -5,9 +5,9 @@ from httpx import ASGITransport, AsyncClient
 
 from app.config import get_settings
 from app.core.database import Base, async_session_null_pool, engine_null_pool
-from app.domains.dependencies import get_db
+from app.domains.dependencies import get_db, get_read_db
 from app.main import app
-from app.uow import UnitOfWork
+from app.uow import ReadOnlyUnitOfWork, UnitOfWork
 
 settings = get_settings()
 
@@ -22,7 +22,16 @@ async def get_db_null_pool():
         yield db
 
 
+async def get_read_db_null_pool():
+    # В тестах реплики нет (compose.test.yaml поднимает только primary),
+    # а схему setup_database создаёт только на ней — поэтому все чтения
+    # в тестах направляем на ту же тестовую БД.
+    async with ReadOnlyUnitOfWork(session_factory=async_session_null_pool) as db:
+        yield db
+
+
 app.dependency_overrides[get_db] = get_db_null_pool
+app.dependency_overrides[get_read_db] = get_read_db_null_pool
 
 
 @pytest.fixture

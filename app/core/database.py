@@ -24,6 +24,23 @@ async_session = async_sessionmaker(
 )
 
 
+async_replica_engine = create_async_engine(
+    url=settings.DB_REPLICA_URL,
+    pool_pre_ping=True,
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=30,
+    pool_recycle=1800,
+    echo=False,
+)
+
+
+async_replica_session = async_sessionmaker(
+    bind=async_replica_engine,
+    expire_on_commit=False,
+    class_=AsyncSession,
+)
+
 engine_null_pool = create_async_engine(url=settings.DB_URL, poolclass=NullPool)
 
 async_session_null_pool = async_sessionmaker(

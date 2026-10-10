@@ -16,11 +16,11 @@ from app.errors.python_exceptions import (
 )
 from app.models.car import CarStatus
 from app.park_price.get_price import Pricing, pricing_strategies_map, set_pricing_strategies
-from app.uow import UnitOfWork
+from app.uow import ReadOnlyUnitOfWork, UnitOfWork
 
 
 class CarService:
-    def __init__(self, uow: UnitOfWork):
+    def __init__(self, uow: UnitOfWork | ReadOnlyUnitOfWork):
         self.uow = uow
 
     async def get_parking_data(
