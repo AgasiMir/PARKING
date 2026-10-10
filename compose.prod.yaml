@@ -61,7 +61,9 @@ services:
       networks:
         - parking_network
       healthcheck:
-        test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_REPLICA_USER:-postgres_r} || exit 1"]
+        # -d postgres: без него pg_isready стучится в БД с именем пользователя
+        # (postgres_r) и сыплет FATAL "database does not exist" в логи
+        test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_REPLICA_USER:-postgres_r} -d postgres || exit 1"]
         interval: 10s
         timeout: 5s
         retries: 5
