@@ -19,6 +19,15 @@ def check_test_mode():
     assert settings.ENVIRONMENT == "TEST"
 
 
+@pytest.fixture
+def rate_limited():
+    limiter = AsyncMock(spec=RateLimiter)
+    limiter.is_limited.return_value = True
+    app.dependency_overrides[get_rate_limiter] = lambda: limiter
+    yield
+    app.dependency_overrides[get_rate_limiter] = get_fake_rate_limiter
+
+
 def get_fake_rate_limiter() -> RateLimiter:
     limiter = AsyncMock(spec=RateLimiter)
     limiter.is_limited.return_value = False
