@@ -1,12 +1,14 @@
 from collections.abc import AsyncGenerator
+from unittest.mock import AsyncMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.config import get_settings
 from app.core.database import Base, async_session_null_pool, engine_null_pool
-from app.domains.dependencies import get_db, get_read_db
+from app.domains.dependencies import get_db, get_rate_limiter, get_read_db
 from app.main import app
+from app.rate_limiter import RateLimiter
 from app.uow import ReadOnlyUnitOfWork, UnitOfWork
 
 settings = get_settings()
@@ -15,6 +17,12 @@ settings = get_settings()
 @pytest.fixture(autouse=True, scope="session")
 def check_test_mode():
     assert settings.ENVIRONMENT == "TEST"
+
+
+def get_fake_rate_limiter() -> RateLimiter:
+    limiter = AsyncMock(spec=RateLimiter)
+    limiter.is_limited.return_value = False
+    return limiter
 
 
 async def get_db_null_pool():
@@ -32,6 +40,7 @@ async def get_read_db_null_pool():
 
 app.dependency_overrides[get_db] = get_db_null_pool
 app.dependency_overrides[get_read_db] = get_read_db_null_pool
+app.dependency_overrides[get_rate_limiter] = get_fake_rate_limiter
 
 
 @pytest.fixture
