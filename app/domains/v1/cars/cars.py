@@ -1,6 +1,13 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Body, Depends, status
 
-from app.domains.dependencies import CarServiceDep, CarServiceReadOnlyDep, CursorPaginationDep
+from app.domains.dependencies import (
+    CarServiceDep,
+    CarServiceReadOnlyDep,
+    CursorPaginationDep,
+    rate_limit_get_parking_data,
+    rate_limit_park_car,
+    rate_limit_unpark_car,
+)
 from app.domains.v1.cars.schemas import (
     CarParkingAndPriceSchema,
     CarParkSchema,
@@ -13,7 +20,11 @@ from app.errors.schemas import ErrorResponse
 router = APIRouter(prefix="/v1/cars", tags=["cars 🚗🚙🚓"])
 
 
-@router.get("/", response_model=ParkingPriceTimeCursorSchema)
+@router.get(
+    "/",
+    response_model=ParkingPriceTimeCursorSchema,
+    dependencies=[Depends(rate_limit_get_parking_data)],
+)
 async def get_cars(cars: CarServiceReadOnlyDep, cursor_pagination: CursorPaginationDep):
     return await cars.get_parking_data(
         limit=cursor_pagination.limit,
@@ -26,6 +37,7 @@ async def get_cars(cars: CarServiceReadOnlyDep, cursor_pagination: CursorPaginat
     "/{car_number}",
     response_model=ParkingPriceTimeCursorSchema,
     summary="Получить историю машины (заезд и выезд из парковки) по номеру",
+    dependencies=[Depends(rate_limit_get_parking_data)],
 )
 async def get_car_list_by_number(
     cars: CarServiceReadOnlyDep,
@@ -40,6 +52,7 @@ async def get_car_list_by_number(
     )
 
 
+# ruff: noqa: B008
 @router.post(
     "/park/",
     response_model=ParkingReadSchema,
@@ -51,8 +64,24 @@ async def get_car_list_by_number(
             "model": ErrorResponse,
         },
     },
+    dependencies=[Depends(rate_limit_park_car)],
 )
-async def park_car(cars: CarServiceDep, park_car: CarParkSchema):
+async def park_car(
+    cars: CarServiceDep,
+    park_car: CarParkSchema = Body(
+        openapi_examples={
+            "1": {
+                "summary": "Park The Car",
+                "value": {
+                    "mark": "Toyota",
+                    "model": "Camry",
+                    "number": "ax74Vz",
+                    "color": "grey",
+                },
+            }
+        }
+    ),
+):
     return await cars.park_car(park_car=park_car)
 
 
@@ -70,6 +99,7 @@ async def park_car(cars: CarServiceDep, park_car: CarParkSchema):
             "model": ErrorResponse,
         },
     },
+    dependencies=[Depends(rate_limit_unpark_car)],
 )
 async def unpark_car(cars: CarServiceDep, unpark_car: CarUnparkSchema):
     return await cars.unpark_car(unpark_car=unpark_car)

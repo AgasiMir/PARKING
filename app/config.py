@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     GF_SECURITY_ADMIN_USER: str = "admin"
     GF_SECURITY_ADMIN_PASSWORD: SecretStr = SecretStr("postgres")
 
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+
     @property
     def DB_URL(self) -> str:
         return (

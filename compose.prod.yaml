@@ -88,6 +88,30 @@ services:
     networks:
       - parking_network
 
+  rate_limiter:
+    image: redis:7
+    container_name: rate_limiter
+    ports:
+      - 6379:6379
+    networks:
+      - parking_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3  
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+
+  redis_gui:
+    image: redis/redisinsight
+    ports:
+      - 5540:5540
+    networks:
+      - parking_network
+    depends_on:
+      rate_limiter:
+        condition: service_healthy
 
 volumes:
   parking_data:

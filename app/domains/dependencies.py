@@ -2,13 +2,15 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, Query
+from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
 from app.core.database import async_replica_session, async_session
 from app.domains.v1.cars.schemas import CursorPaginationSchema
 from app.domains.v1.cars.service import CarService
+from app.rate_limiter import RateLimiter
+from app.redis_connector import get_redis
 from app.uow import ReadOnlyUnitOfWork, UnitOfWork
 
 
@@ -54,3 +56,43 @@ async def get_cursor_pagination(
 
 
 CursorPaginationDep = Annotated[CursorPaginationSchema, Depends(get_cursor_pagination)]
+
+
+def get_rate_limiter() -> RateLimiter:
+    return RateLimiter(get_redis())
+
+
+RateLimiterDep = Annotated[RateLimiter, Depends(get_rate_limiter)]
+
+
+def rate_limiter_factory(
+    endpoint: str,
+    max_requests: int,
+    window_seconds: int,
+):
+    async def dependency(
+        request: Request,
+        rate_limiter: RateLimiterDep,
+    ):
+        if request and request.client:
+            ip_address = request.client.host
+
+        limited = await rate_limiter.is_limited(
+            ip_address,
+            endpoint,
+            max_requests,
+            window_seconds,
+        )
+
+        if limited:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Превышено количество запросов. Повторите позже",
+            )
+
+    return dependency
+
+
+rate_limit_get_parking_data = rate_limiter_factory("parking_list", 5, 5)
+rate_limit_park_car = rate_limiter_factory("park_car", 3, 10)
+rate_limit_unpark_car = rate_limiter_factory("unpark_car", 3, 10)
