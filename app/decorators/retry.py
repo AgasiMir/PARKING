@@ -41,8 +41,6 @@ def retry(
 
             if last_exception:
                 raise last_exception
-            # Эта строка никогда не должна выполняться, но нужна для типизации
-            raise RuntimeError("Неизвестная ошибка в декораторе retry")
 
         return wrapper
 
