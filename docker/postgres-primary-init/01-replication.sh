@@ -2,7 +2,7 @@
 set -e
 
 # роль для потока WAL
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
     -- идемпотентно: не падаем, если роль уже существует (volume не пересоздавался)
     DO \$do\$
     BEGIN
