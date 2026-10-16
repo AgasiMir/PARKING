@@ -65,10 +65,13 @@ async def test_retry_does_not_retry_on_unlisted_exception():
 
 
 async def test_retry_applies_backoff_delay():
-    """Проверка расчёта задержки: delay + (attempt - 1) * backoff_factor."""
+    """
+    Проверка расчёта задержки с джиттером:
+    интервал для uniform: (0, delay * backoff_factor ** (attempt - 1)).
+    """
     calls = 0
 
-    @retry(retries=3, delay=1, backoff_factor=0.5, exceptions=(ValueError,))
+    @retry(retries=3, delay=1, backoff_factor=2.0, exceptions=(ValueError,))
     async def flaky():
         nonlocal calls
         calls += 1
@@ -76,12 +79,15 @@ async def test_retry_applies_backoff_delay():
 
     with (
         patch("app.decorators.retry.asyncio.sleep", new=AsyncMock()) as mock_sleep,
+        patch("app.decorators.retry.random.uniform", side_effect=lambda a, b: b) as mock_uniform,
         pytest.raises(ValueError),
     ):
         await flaky()
 
-    # попытка 1 -> 1.0, попытка 2 -> 1.5
-    assert mock_sleep.await_args_list == [call(1.0), call(1.5)]
+    # формула: попытка 1 -> 1 * 2**0 = 1.0; попытка 2 -> 1 * 2**1 = 2.0
+    assert mock_uniform.call_args_list == [call(0, 1.0), call(0, 2.0)]
+    # uniform возвращает верхнюю границу -> sleep получает 1.0 и 2.0
+    assert mock_sleep.await_args_list == [call(1.0), call(2.0)]
 
 
 async def test_retry_retries_one_means_no_retry():
