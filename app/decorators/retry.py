@@ -1,4 +1,5 @@
 import asyncio
+import random
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
@@ -11,7 +12,7 @@ def retry(
     retries: int = 3,
     delay: float = 3,
     exceptions: tuple[type[Exception], ...] = (Exception,),
-    backoff_factor: float = 0.5,
+    backoff_factor: float = 2,
 ):
     """
     Декоратор для повторного выполнения асинхронной функции при возникновении указанных исключений.
@@ -36,7 +37,8 @@ def retry(
                         f"Попытка {attempt}/{retries} не удалась для {func.__name__}: {err}"
                     )
                     if attempt < retries:
-                        current_delay = delay + (attempt - 1) * backoff_factor
+                        current_delay = delay * (backoff_factor ** (attempt - 1))
+                        current_delay = random.uniform(0, current_delay)
                         await asyncio.sleep(current_delay)
 
             if last_exception:

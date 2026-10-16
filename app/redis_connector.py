@@ -21,7 +21,7 @@ def get_redis() -> Redis:
 @retry(
     retries=5,
     delay=1,
-    backoff_factor=1.0,
+    backoff_factor=2.0,
     exceptions=(RedisConnectionError, RedisTimeoutError),
 )
 async def ping_redis(redis: Redis) -> None:
