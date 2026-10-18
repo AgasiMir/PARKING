@@ -14,13 +14,13 @@ from app.domains.v1.cars.schemas import (
 from app.errors.python_exceptions import (
     CarIsAlreadyParkedException,
 )
+from app.interfaces.uow import UnitOfWorkInterface
 from app.models.car import CarStatus
 from app.park_price.get_price import Pricing, pricing_strategies_map, set_pricing_strategies
-from app.uow import ReadOnlyUnitOfWork, UnitOfWork
 
 
 class CarService:
-    def __init__(self, uow: UnitOfWork | ReadOnlyUnitOfWork):
+    def __init__(self, uow: UnitOfWorkInterface):
         self.uow = uow
 
     async def get_parking_data(

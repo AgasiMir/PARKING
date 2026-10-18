@@ -5,9 +5,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.domains.v1.cars.repository import CarRepository
+from app.interfaces.uow import UnitOfWorkInterface
 
 
-class UnitOfWork:
+class UnitOfWork(UnitOfWorkInterface):
     """Единица работы: управляет жизненным циклом сессии и репозиториев."""
 
     _session: AsyncSession
@@ -38,8 +39,11 @@ class UnitOfWork:
             await self._session.close()
 
 
-class ReadOnlyUnitOfWork:
+class ReadOnlyUnitOfWork(UnitOfWorkInterface):
     """UoW для чтения с реплики: без коммитов, транзакция READ ONLY."""
+
+    _session: AsyncSession
+    cars: CarRepository
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self.session_factory = session_factory
