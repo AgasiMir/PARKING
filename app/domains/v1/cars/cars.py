@@ -42,7 +42,7 @@ async def get_cars(cars: CarServiceReadOnlyDep, cursor_pagination: CursorPaginat
 async def get_car_list_by_number(
     cars: CarServiceReadOnlyDep,
     cursor_pagination: CursorPaginationDep,
-    car_number: str | None = None,
+    car_number: str,
 ):
     return await cars.get_parking_data(
         car_number=car_number,

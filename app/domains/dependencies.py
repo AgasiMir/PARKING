@@ -74,8 +74,13 @@ def rate_limiter_factory(
         request: Request,
         rate_limiter: RateLimiterDep,
     ):
-        if request and request.client:
-            ip_address = request.client.host
+        if request.client is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Не удалось определить IP клиента",
+            )
+
+        ip_address = request.client.host
 
         limited = await rate_limiter.is_limited(
             ip_address,

@@ -13,12 +13,14 @@ from app.prom_metrics import ACTIVE_REQUESTS, REQUEST_DURATION, REQUESTS_TOTAL
 
 
 async def metrics_middleware(request: Request, call_next):
-    start_time = time.time()
+    start_time = time.perf_counter()
     method = request.method
-    endpoint = request.url.path
     status_code = "500"
 
-    # Увеличиваем active requests — только с method и endpoint
+    # request.url.path всегда существует; route может быть не заполнен до вызова call_next()
+    route = request.scope.get("route")
+    endpoint = getattr(route, "path", request.url.path)
+
     active_labels = {"method": method, "endpoint": endpoint}
     ACTIVE_REQUESTS.labels(**active_labels).inc()
 
@@ -29,8 +31,8 @@ async def metrics_middleware(request: Request, call_next):
     except Exception:
         raise
     finally:
-        # Время выполнения и счётчик запросов — с status_code
-        duration = time.time() - start_time
+        duration = time.perf_counter() - start_time
+
         request_labels = {
             "method": method,
             "endpoint": endpoint,
@@ -40,5 +42,4 @@ async def metrics_middleware(request: Request, call_next):
         REQUEST_DURATION.labels(**request_labels).observe(duration)
         REQUESTS_TOTAL.labels(**request_labels).inc()
 
-        # Уменьшаем active — снова без status_code
         ACTIVE_REQUESTS.labels(**active_labels).dec()
